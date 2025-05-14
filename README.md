@@ -97,6 +97,11 @@ This project implements a Retrieval-Augmented Generation (RAG) pipeline using Fa
 ```
 .
 ├── data/               # Qdrant storage directory
+├── tests/              # Test suite directory
+│   ├── __init__.py
+│   ├── test_vector_store.py
+│   ├── test_llm.py
+│   └── test_utils.py
 ├── main.py            # FastAPI application and endpoints
 ├── config.py          # Configuration management
 ├── models.py          # Data models and validation
@@ -105,12 +110,52 @@ This project implements a Retrieval-Augmented Generation (RAG) pipeline using Fa
 ├── llm.py             # LLM service for text generation
 ├── docker-compose.yml # Docker compose for Qdrant
 ├── requirements.txt   # Python dependencies
+├── pytest.ini         # Pytest configuration
 ├── .env.example       # Example environment variables
 ├── README.md         # This file
 └── .gitignore        # Git ignore rules
 ```
 
+## Testing
+
+The project uses pytest for testing. Tests are automatically run before each git push using a pre-push hook.
+
+To run tests manually:
+
+```bash
+pytest -v  # Run tests with verbose output
+```
+
+Test files are located in the `tests/` directory and cover:
+
+1. **Vector Store Operations** (`test_vector_store.py`):
+   - Collection initialization
+   - Embedding generation
+   - Document addition and retrieval
+
+2. **LLM Service** (`test_llm.py`):
+   - Response generation
+   - Context handling
+
+3. **Utility Functions** (`test_utils.py`):
+   - Text chunking with overlap
+   - Prompt formatting
+
+### Git Hooks
+
+The repository includes a pre-push hook that automatically runs tests before each push. If any test fails, the push will be aborted. This ensures that only working code is pushed to the repository.
+
+To skip the pre-push hook in exceptional cases (not recommended):
+```bash
+git push --no-verify
+```
+
 ## Contributing
+
+Before submitting a pull request:
+1. Ensure all tests pass
+2. Add tests for new functionality
+3. Update documentation as needed
 
 Feel free to open issues or submit pull requests for improvements!
 

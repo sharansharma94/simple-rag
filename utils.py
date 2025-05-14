@@ -23,13 +23,12 @@ def chunk_text(text: str) -> List[str]:
     start = 0
     
     while start < len(text):
-        end = start + chunk_size
-        # If this is not the first chunk, back up to include overlap
-        if start > 0:
-            start = start - overlap
+        end = min(start + chunk_size, len(text))
         chunk = text[start:end]
         chunks.append(chunk)
-        start = end
+        
+        # Move start position for next chunk, considering overlap
+        start = end - overlap if end < len(text) else len(text)
     
     return chunks
 
