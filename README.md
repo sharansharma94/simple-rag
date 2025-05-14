@@ -1,6 +1,6 @@
 # RAG Pipeline with Qdrant Vector Store
 
-This project implements a Retrieval-Augmented Generation (RAG) pipeline using FastAPI, Qdrant vector database, and Ollama's Mistral model. This system allows you to upload documents and ask questions about them, using Ollama's embeddings for semantic search and text generation for answers.
+This project implements a Retrieval-Augmented Generation (RAG) pipeline using FastAPI, Qdrant vector database, and Ollama's Mistral model. The code is available at [simple-rag](https://github.com/sharansharma94/simple-rag). This system allows you to upload documents and ask questions about them, using Ollama's embeddings for semantic search and text generation for answers.
 
 ## Features
 
@@ -23,8 +23,8 @@ This project implements a Retrieval-Augmented Generation (RAG) pipeline using Fa
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
-   cd rag-pipeline
+   git clone https://github.com/sharansharma94/simple-rag.git
+   cd simple-rag
    ```
 
 2. Install Python dependencies:
@@ -32,7 +32,12 @@ This project implements a Retrieval-Augmented Generation (RAG) pipeline using Fa
    pip install -r requirements.txt
    ```
 
-3. Start Qdrant using Podman:
+3. Start Qdrant using Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+   
+   Or using Podman:
    ```bash
    mkdir -p data/qdrant
    podman run -d --name qdrant \
@@ -92,8 +97,15 @@ This project implements a Retrieval-Augmented Generation (RAG) pipeline using Fa
 ```
 .
 ├── data/               # Qdrant storage directory
-├── rag_pipeline.py    # Main application code
+├── main.py            # FastAPI application and endpoints
+├── config.py          # Configuration management
+├── models.py          # Data models and validation
+├── utils.py           # Common utility functions
+├── vector_store.py    # Vector store implementation
+├── llm.py             # LLM service for text generation
+├── docker-compose.yml # Docker compose for Qdrant
 ├── requirements.txt   # Python dependencies
+├── .env.example       # Example environment variables
 ├── README.md         # This file
 └── .gitignore        # Git ignore rules
 ```
