@@ -1,6 +1,6 @@
-# RAG Pipeline with Ollama
+# RAG Pipeline with Qdrant Vector Store
 
-A lightweight Retrieval-Augmented Generation (RAG) pipeline using FastAPI and Ollama. This system allows you to upload documents and ask questions about them, using Ollama's embeddings for semantic search and text generation for answers.
+This project implements a Retrieval-Augmented Generation (RAG) pipeline using FastAPI, Qdrant vector database, and Ollama's Mistral model. This system allows you to upload documents and ask questions about them, using Ollama's embeddings for semantic search and text generation for answers.
 
 ## Features
 
@@ -27,74 +27,76 @@ A lightweight Retrieval-Augmented Generation (RAG) pipeline using FastAPI and Ol
    cd rag-pipeline
    ```
 
-2. Install dependencies:
+2. Install Python dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-## Running the Server
+3. Start Qdrant using Podman:
+   ```bash
+   mkdir -p data/qdrant
+   podman run -d --name qdrant \
+     -p 6333:6333 -p 6334:6334 \
+     -v ./data/qdrant:/qdrant/storage:Z \
+     docker.io/qdrant/qdrant:latest
+   ```
 
-1. Start the Ollama server (it should run on port 11434)
+## Usage
 
-2. Start the RAG server:
+1. Start the RAG server:
    ```bash
    python rag_pipeline.py
    ```
-   The server will run on `http://localhost:8000`
+
+2. Upload a document:
+   ```bash
+   curl -X POST -F "file=@sample.txt" http://localhost:8000/upload
+   ```
+
+3. Query the system:
+   ```bash
+   curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{"query": "What is RAG?"}' \
+     http://localhost:8000/query
+   ```
 
 ## API Endpoints
 
-### 1. Upload Document
-```http
-POST /upload
-Content-Type: multipart/form-data
+### Upload Document
+- **URL**: `/upload`
+- **Method**: `POST`
+- **Form Data**: `file` (text file)
+- **Response**: JSON with upload status
 
-file: <document>
+### Query
+- **URL**: `/query`
+- **Method**: `POST`
+- **Body**: JSON with `query` field
+- **Response**: JSON with answer and context
+
+## Architecture
+
+1. Document Processing:
+   - Text is chunked into smaller segments
+   - Mistral model generates embeddings (4096 dimensions)
+   - Embeddings and text are stored in Qdrant
+
+2. Query Processing:
+   - Query is converted to embedding
+   - Similar documents are retrieved from Qdrant
+   - Mistral model generates answer using retrieved context
+
+## Project Structure
+
 ```
-
-Example using curl:
-```bash
-curl -X POST -F "file=@document.txt" http://localhost:8000/upload
+.
+├── data/               # Qdrant storage directory
+├── rag_pipeline.py    # Main application code
+├── requirements.txt   # Python dependencies
+├── README.md         # This file
+└── .gitignore        # Git ignore rules
 ```
-
-### 2. Query Documents
-```http
-POST /query
-Content-Type: application/json
-
-{
-    "query": "your question here",
-    "num_chunks": 3
-}
-```
-
-Example using curl:
-```bash
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"query":"what is this document about?"}' \
-     http://localhost:8000/query
-```
-
-## How it Works
-
-1. **Document Processing**:
-   - Documents are split into chunks with overlap
-   - Each chunk is converted to an embedding using Ollama
-
-2. **Query Processing**:
-   - Query is converted to an embedding
-   - Most similar chunks are retrieved using cosine similarity
-   - Retrieved chunks are used as context for Ollama to generate an answer
-
-## Dependencies
-
-- fastapi: Web framework
-- uvicorn: ASGI server
-- httpx: Async HTTP client
-- numpy & scipy: Vector operations
-- python-multipart: File upload handling
-- pydantic: Data validation
 
 ## Contributing
 

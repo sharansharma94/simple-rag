@@ -1,12 +1,12 @@
 from typing import List, Dict, Optional
 from dataclasses import dataclass
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import uvicorn
 import numpy as np
-from scipy.spatial.distance import cosine
-from collections import defaultdict
+import json
+import uuid
 
 app = FastAPI()
 
@@ -18,15 +18,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@dataclass
-class Document:
-    text: str
-    metadata: Dict
-    embedding: Optional[np.ndarray] = None
-
-class SimpleVectorStore:
+class QdrantStore:
     def __init__(self):
-        self.documents: List[Document] = []
+        self.base_url = "http://localhost:6333"
+        self.collection_name = "documents"
+        self.dim = 4096  # Mistral embedding dimension
+        
+        # Create collection if it doesn't exist
+        try:
+            self._create_collection()
+        except Exception as e:
+            print(f"Collection might already exist: {e}")
+    
+    def _create_collection(self):
+        url = f"{self.base_url}/collections/{self.collection_name}"
+        payload = {
+            "vectors": {
+                "size": self.dim,
+                "distance": "Cosine"
+            }
+        }
+        response = httpx.put(url, json=payload)
+        response.raise_for_status()
     
     async def get_embedding(self, text: str) -> np.ndarray:
         """Get embedding from Ollama API"""
@@ -43,28 +56,67 @@ class SimpleVectorStore:
     
     async def add_document(self, text: str, metadata: Dict):
         embedding = await self.get_embedding(text)
-        doc = Document(text=text, metadata=metadata, embedding=embedding)
-        self.documents.append(doc)
+        point_id = str(uuid.uuid4())
+        
+        try:
+            url = f"{self.base_url}/collections/{self.collection_name}/points"
+            payload = {
+                "points": [{
+                    "id": point_id,
+                    "vector": embedding.tolist(),
+                    "payload": {
+                        "text": text,
+                        "metadata": metadata
+                    }
+                }]
+            }
+            response = httpx.put(url, json=payload)
+            response.raise_for_status()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error inserting document: {str(e)}")
     
-    async def search(self, query: str, k: int = 3) -> List[Document]:
+
+    async def search(self, query: str, k: int = 3) -> List[Dict]:
         query_embedding = await self.get_embedding(query)
         
-        if not self.documents:
-            return []
-        
-        # Calculate cosine similarities
-        similarities = [
-            (1 - cosine(query_embedding, doc.embedding), doc)
-            for doc in self.documents
-        ]
-        
-        # Sort by similarity
-        similarities.sort(reverse=True)
-        
-        return [doc for _, doc in similarities[:k]]
-
+        try:
+            url = f"{self.base_url}/collections/{self.collection_name}/points/search"
+            payload = {
+                "vector": query_embedding.tolist(),
+                "limit": k,
+                "with_payload": True
+            }
+            
+            # Validate payload
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid payload structure")
+            
+            # Log payload for debugging
+            print("Search payload:", payload)
+            
+            response = httpx.post(url, json=payload)
+            response.raise_for_status()
+            results = response.json()
+            
+            # Log results for debugging
+            print("Search results:", results)
+            
+            if not results or "result" not in results:
+                return []
+                
+            return [{
+                "text": hit.get("payload", {}).get("text", ""),
+                "metadata": hit.get("payload", {}).get("metadata", {}),
+                "score": hit.get("score", 0.0)
+            } for hit in results["result"]]
+        except httpx.HTTPError as e:
+            print(f"HTTP error: {e}")
+            raise HTTPException(status_code=500, detail=f"Error searching documents: {str(e)}")
+        except Exception as e:
+            print(f"Error searching documents: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error searching documents: {str(e)}")
 # Initialize vector store
-vector_store = SimpleVectorStore()
+vector_store = QdrantStore()
 
 def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
     """Simple text chunking"""
@@ -111,7 +163,7 @@ async def query(request: QueryRequest):
     # print(f"Retrieved {len(results)} chunks")
     
     # Combine retrieved chunks into context
-    context = "\n\n".join(doc.text for doc in results)
+    context = "\n\n".join(doc["text"] for doc in results)
     # print(f"Context: {context}")
     
     # Prepare prompt for Ollama
