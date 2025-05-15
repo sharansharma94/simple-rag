@@ -60,6 +60,7 @@ data/
 sample.txt
 temp/
 uploads/
+sample_docs/
 
 # OS specific
 .DS_Store
